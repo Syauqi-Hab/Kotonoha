@@ -52,15 +52,15 @@ class BubbleDetector:
 
         # 1. Binarize for white/bright speech bubble regions
         # Speech bubbles in manga are characteristically near-white (> 230)
-        _, thresh = cv2.threshold(gray, 220, 255, cv2.THRESH_BINARY)
+        _, thresh = cv2.threshold(gray, 230, 255, cv2.THRESH_BINARY)
 
         # 2. Morphological closing to seal bubble outlines and text gaps
-        kernel_size = max(5, int(min(width, height) * 0.01))
+        kernel_size = max(5, int(min(width, height) * 0.008))
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
-        closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=2)
+        closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=1)
 
-        # 3. Find outer contours
-        contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # 3. Find 2-level contours (RETR_CCOMP ensures bubbles inside panel borders/margins are detected)
+        contours, _ = cv2.findContours(closed, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
 
         candidate_boxes: List[BoundingBox] = []
 

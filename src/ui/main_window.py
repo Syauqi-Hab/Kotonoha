@@ -171,6 +171,10 @@ class MainWindow(QMainWindow):
         act_open_img.triggered.connect(self.action_open_image)
         file_menu.addAction(act_open_img)
 
+        act_open_folder = QAction("Open Manga Folder (Batch Images)...", self)
+        act_open_folder.triggered.connect(self.action_open_folder)
+        file_menu.addAction(act_open_folder)
+
         act_open_pdf = QAction("Open Manga PDF...", self)
         act_open_pdf.triggered.connect(self.action_open_pdf)
         file_menu.addAction(act_open_pdf)
@@ -522,6 +526,37 @@ class MainWindow(QMainWindow):
                 )
                 self.add_page(page, img)
 
+    def action_open_folder(self) -> None:
+        folder_path = QFileDialog.getExistingDirectory(self, "Select Manga Images Directory")
+        if folder_path:
+            self.load_folder(folder_path)
+
+    def load_folder(self, folder_path: Path | str) -> int:
+        folder = Path(folder_path)
+        valid_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
+        files = [
+            f for f in folder.iterdir()
+            if f.is_file() and f.suffix.lower() in valid_exts
+        ]
+        from src.ingestors.cbz_reader import natural_sort_key
+        sorted_files = sorted(files, key=lambda f: natural_sort_key(f.name))
+
+        for file_path in sorted_files:
+            img = cv2.imread(str(file_path))
+            if img is not None:
+                h, w = img.shape[:2]
+                page = MangaPage(
+                    page_number=len(self.pages) + 1,
+                    file_path=str(file_path),
+                    width=w,
+                    height=h,
+                    source_type="image"
+                )
+                self.add_page(page, img)
+
+        self.status_bar.showMessage(f"Imported {len(sorted_files)} pages from folder: {folder.name}")
+        return len(sorted_files)
+
     def action_open_pdf(self) -> None:
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Open Manga PDF", "", "PDF Manga Documents (*.pdf)"
@@ -628,11 +663,13 @@ class MainWindow(QMainWindow):
 
         painter.end()
 
-        qimg = pixmap.toImage().convertToFormat(QImage.Format.Format_BGR888)
-        w, h = qimg.width(), qimg.height()
-        ptr = qimg.bits()
-        arr = np.array(ptr, dtype=np.uint8).reshape((h, w, 3))
-        return arr.copy()
+        # Robust conversion handling Qt bytesPerLine row padding
+        qimg = pixmap.toImage().convertToFormat(QImage.Format.Format_RGB888)
+        h, w = qimg.height(), qimg.width()
+        bpl = qimg.bytesPerLine()
+        raw_bytes = bytes(qimg.constBits())
+        img_rgb = np.frombuffer(raw_bytes, dtype=np.uint8).reshape((h, bpl))[:, :w * 3].reshape((h, w, 3))
+        return cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
 
     def action_export_cbz(self) -> None:
         """Exports all loaded pages as a standardized .cbz comic archive."""
