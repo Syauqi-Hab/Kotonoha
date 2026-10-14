@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (
     QLabel,
 )
 
-from src.core.models import MangaPage, SpeechBubble
+from src.core.models import MangaPage, SpeechBubble, BoundingBox
 from src.core.context_engine import ContextEngine
 from src.core.config import config
 from src.vision.detector import BubbleDetector
