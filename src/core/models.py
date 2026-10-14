@@ -84,7 +84,7 @@ class MangaPage(BaseModel):
     bubbles: List[SpeechBubble] = Field(default_factory=list)
     is_inpainted: bool = False
     is_translated: bool = False
-    source_type: Literal["image", "pdf", "web", "screencap"] = "image"
+    source_type: Literal["image", "pdf", "web", "screencap", "cbz"] = "image"
 
     def get_bubble_by_id(self, bubble_id: str) -> Optional[SpeechBubble]:
         for b in self.bubbles:

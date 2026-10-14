@@ -44,6 +44,7 @@ from src.vision.inpainter import MangaInpainter
 from src.translation.llm_translator import LLMTranslator
 from src.translation.typesetter import AutoTypesetter
 from src.ingestors.pdf_reader import PDFReader
+from src.ingestors.cbz_reader import CBZReader
 from src.ingestors.web_fetcher import WebMangaFetcher
 from src.ui.canvas import MangaCanvas, numpy_to_qpixmap
 from src.ui.panels import LayerControlPanel, BubbleInspectorPanel, SessionMemoryPanel
@@ -174,6 +175,10 @@ class MainWindow(QMainWindow):
         act_open_pdf.triggered.connect(self.action_open_pdf)
         file_menu.addAction(act_open_pdf)
 
+        act_open_cbz = QAction("Open Comic Archive (.cbz, .zip)...", self)
+        act_open_cbz.triggered.connect(self.action_open_cbz)
+        file_menu.addAction(act_open_cbz)
+
         act_fetch_web = QAction("Fetch from Web URL...", self)
         act_fetch_web.triggered.connect(self.action_fetch_web)
         file_menu.addAction(act_fetch_web)
@@ -191,6 +196,10 @@ class MainWindow(QMainWindow):
         act_export_page.setShortcut(QKeySequence.StandardKey.Save)
         act_export_page.triggered.connect(self.action_export_page)
         file_menu.addAction(act_export_page)
+
+        act_export_cbz = QAction("Export All to CBZ Archive...", self)
+        act_export_cbz.triggered.connect(self.action_export_cbz)
+        file_menu.addAction(act_export_cbz)
 
         act_exit = QAction("Exit", self)
         act_exit.triggered.connect(self.close)
@@ -527,6 +536,20 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "PDF Error", f"Failed to load PDF: {e}")
 
+    def action_open_cbz(self) -> None:
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Open Comic Archive", "", "Comic Archives (*.cbz *.zip)"
+        )
+        if file_path:
+            try:
+                reader = CBZReader(file_path)
+                for i in range(reader.page_count):
+                    page, img = reader.load_manga_page(i)
+                    self.add_page(page, img)
+                self.status_bar.showMessage(f"Imported {reader.page_count} pages from CBZ archive.")
+            except Exception as e:
+                QMessageBox.critical(self, "CBZ Error", f"Failed to load CBZ: {e}")
+
     def action_fetch_web(self) -> None:
         url, ok = QInputDialog.getText(self, "Fetch Web Manga", "Enter Manga Image Panel URL:")
         if ok and url.strip():
@@ -578,6 +601,64 @@ class MainWindow(QMainWindow):
         painter.end()
         pixmap.save(file_path)
         QMessageBox.information(self, "Export Successful", f"Saved typeset manga page to:\n{file_path}")
+
+    def _render_page_composite(self, page_idx: int) -> np.ndarray:
+        """Renders cleaned/base image + typeset overlay into an RGB/BGR numpy array."""
+        base_img = self.cleaned_images[page_idx]
+        if base_img is None:
+            base_img = self.page_images[page_idx]
+
+        pixmap = numpy_to_qpixmap(base_img)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
+
+        if page_idx == self.current_page_idx:
+            for item in self.canvas.typeset_group.childItems():
+                item.paint(painter, None)
+        else:
+            from src.ui.canvas import TypesetItem
+            for bubble in self.pages[page_idx].bubbles:
+                if bubble.translated_text:
+                    t_item = TypesetItem(bubble)
+                    painter.save()
+                    painter.translate(bubble.bbox.x, bubble.bbox.y)
+                    t_item.paint(painter, None)
+                    painter.restore()
+
+        painter.end()
+
+        qimg = pixmap.toImage().convertToFormat(QImage.Format.Format_BGR888)
+        w, h = qimg.width(), qimg.height()
+        ptr = qimg.bits()
+        arr = np.array(ptr, dtype=np.uint8).reshape((h, w, 3))
+        return arr.copy()
+
+    def action_export_cbz(self) -> None:
+        """Exports all loaded pages as a standardized .cbz comic archive."""
+        if not self.pages:
+            QMessageBox.information(self, "No Pages", "No manga pages loaded to export.")
+            return
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Export All Pages to CBZ Archive", "manga_chapter.cbz", "Comic Book Zip (*.cbz)"
+        )
+        if not file_path:
+            return
+
+        pages_data = []
+        for idx, page in enumerate(self.pages):
+            rendered_bgr = self._render_page_composite(idx)
+            pages_data.append((page.page_number, rendered_bgr))
+
+        try:
+            CBZReader.export_pages_to_cbz(file_path, pages_data)
+            QMessageBox.information(
+                self, "CBZ Export Successful",
+                f"Successfully exported {len(pages_data)} translated pages to:\n{file_path}"
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", f"Failed to export CBZ: {e}")
 
     # Canvas Interaction Callbacks
     def _on_bubble_selected(self, bubble_id: str) -> None:

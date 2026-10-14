@@ -85,6 +85,31 @@ class TestKotonohaSuite(unittest.TestCase):
         self.assertEqual(cleaned.shape, img.shape)
         self.assertEqual(mask.shape, img.shape[:2])
 
+    def test_cbz_reader_and_exporter(self):
+        import tempfile
+        from pathlib import Path
+        from src.ingestors.cbz_reader import CBZReader
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            cbz_file = tmp_path / "test_chapter.cbz"
+
+            # Create 2 test pages
+            page1 = np.full((100, 100, 3), 120, dtype=np.uint8)
+            page2 = np.full((120, 100, 3), 200, dtype=np.uint8)
+
+            CBZReader.export_pages_to_cbz(cbz_file, [(1, page1), (2, page2)])
+            self.assertTrue(cbz_file.exists())
+
+            # Read back
+            reader = CBZReader(cbz_file)
+            self.assertEqual(reader.page_count, 2)
+
+            page_model, loaded_img = reader.load_manga_page(0)
+            self.assertEqual(page_model.page_number, 1)
+            self.assertEqual(page_model.source_type, "cbz")
+            self.assertEqual(loaded_img.shape, (100, 100, 3))
+
 
 if __name__ == "__main__":
     unittest.main()

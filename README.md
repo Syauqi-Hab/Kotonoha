@@ -26,8 +26,8 @@ Setiap layer memiliki kontrol visibilitas (toggle mata) dan slider opasitas ters
 - **Context-Stitching LLM Translation:** Menerjemahkan balon bicara per-halaman sekaligus dengan Google Gemini API, menjaga suara karakter, emosi (*whisper, scream, monologue*), dan kontinuitas cerita.
 - **Session Glossary & NER Memory:** Panel memori istilah untuk konsistensi nama karakter dan honorifik.
 - **Floating Screen Overlay Mode:** Mode overlay transparan (F9) untuk membaca dan menerjemahkan manga mentah (*raw*) langsung di browser atau aplikasi reader lain di layar komputer.
-- **Multi-Format Ingestion:** Dukungan gambar (PNG, JPG, WEBP), Manga PDF beresolusi tinggi (PyMuPDF), Web URL fetcher (HTTPX), dan Screen Region Snipper.
-- **Ekspor Non-Destructive:** Ekspor langsung halaman hasil typeset bersih siap rilis tanpa garis bantu vektor.
+- **Multi-Format Ingestion:** Dukungan gambar (PNG, JPG, WEBP), Manga PDF beresolusi tinggi (PyMuPDF), **Arsip Komik CBZ/ZIP**, Web URL fetcher (HTTPX), dan Screen Region Snipper.
+- **Ekspor Non-Destructive & Rilis CBZ:** Ekspor langsung halaman hasil typeset bersih siap rilis (PNG/JPG) atau ekspor seluruh chapter sekaligus ke dalam format **.cbz (Comic Book Zip)**.
 
 ---
 
